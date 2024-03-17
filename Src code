@@ -1,0 +1,265 @@
+import sqlite3
+from tkinter import *
+import tkinter.ttk as ttk
+import tkinter.messagebox as mb
+import tkinter.simpledialog as sd
+
+connector = sqlite3.connect('catering.db')
+cursor = connector.cursor()
+
+connector.execute('''
+    CREATE TABLE IF NOT EXISTS Orders (
+        ORDER_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        CUSTOMER_NAME TEXT,
+        FOOD_ITEM TEXT,
+        QUANTITY INTEGER,
+        ORDER_STATUS TEXT
+    )
+''')
+
+connector.execute('''
+    CREATE TABLE IF NOT EXISTS Reservations (
+        RESERVATION_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        CUSTOMER_NAME TEXT,
+        EVENT_DATE TEXT,
+        GUEST_COUNT INTEGER,
+        RESERVATION_STATUS TEXT
+    )
+''')
+
+def place_order():
+    global connector
+    global customer_name, food_item, quantity, order_status
+    try:
+        cursor.execute(
+            'INSERT INTO Orders (CUSTOMER_NAME, FOOD_ITEM, QUANTITY, ORDER_STATUS) VALUES (?, ?, ?, ?)',
+            (customer_name.get(), food_item.get(), quantity.get(), order_status.get()))
+        connector.commit()
+        clear_and_display_orders()
+        mb.showinfo('Order Placed', 'The order was successfully placed.')
+    except Exception as e:
+        mb.showerror('Error', str(e))
+
+def make_reservation():
+    global connector
+    global customer_name, event_date, guest_count, reservation_status
+    try:
+        cursor.execute(
+            'INSERT INTO Reservations (CUSTOMER_NAME, EVENT_DATE, GUEST_COUNT, RESERVATION_STATUS) VALUES (?, ?, ?, ?)',
+            (customer_name.get(), event_date.get(), guest_count.get(), reservation_status.get()))
+        connector.commit()
+        clear_and_display_reservations()
+        mb.showinfo('Reservation Made', 'The reservation was successfully made.')
+    except Exception as e:
+        mb.showerror('Error', str(e))
+
+def clear_fields():
+    global customer_name, food_item, quantity, order_status, event_date, guest_count, reservation_status
+    for var in [customer_name, food_item, quantity, event_date, guest_count]:
+        var.set('')
+    order_status.set('Pending')
+    reservation_status.set('Pending')
+
+def clear_and_display_orders():
+    clear_fields()
+    display_orders()
+
+def clear_and_display_reservations():
+    clear_fields()
+    display_reservations()
+
+def display_orders():
+    global orders_tree, cursor
+    orders_tree.delete(*orders_tree.get_children())
+    cursor.execute('SELECT * FROM Orders')
+    for row in cursor.fetchall():
+        orders_tree.insert('', 'end', values=row)
+
+def display_reservations():
+    global reservations_tree, cursor
+    reservations_tree.delete(*reservations_tree.get_children())
+    cursor.execute('SELECT * FROM Reservations')
+    for row in cursor.fetchall():
+        reservations_tree.insert('', 'end', values=row)
+
+def cancel_order():
+    global orders_tree, cursor
+    selected_item = orders_tree.selection()
+    if not selected_item:
+        mb.showerror('Error', 'Please select an order to cancel.')
+        return
+    order_id = orders_tree.item(selected_item)['values'][0]
+    try:
+        cursor.execute('DELETE FROM Orders WHERE ORDER_ID = ?', (order_id,))
+        connector.commit()
+        clear_and_display_orders()
+        mb.showinfo('Order Canceled', 'The selected order has been canceled.')
+    except Exception as e:
+        mb.showerror('Error', str(e))
+
+def cancel_reservation():
+    global reservations_tree, cursor
+    selected_item = reservations_tree.selection()
+    if not selected_item:
+        mb.showerror('Error', 'Please select a reservation to cancel.')
+        return
+    reservation_id = reservations_tree.item(selected_item)['values'][0]
+    try:
+        cursor.execute('DELETE FROM Reservations WHERE RESERVATION_ID = ?', (reservation_id,))
+        connector.commit()
+        clear_and_display_reservations()
+        mb.showinfo('Reservation Canceled', 'The selected reservation has been canceled.')
+    except Exception as e:
+        mb.showerror('Error', str(e))
+
+def change_order_status():
+    global orders_tree, cursor
+    selected_item = orders_tree.selection()
+    if not selected_item:
+        mb.showerror('Error', 'Please select an order to change its status.')
+        return
+    new_status = mb.askstring('New Status', 'Enter the new status for the order (e.g., Pending, Completed):')
+    if not new_status:
+        return
+    order_id = orders_tree.item(selected_item)['values'][0]
+    try:
+        cursor.execute('UPDATE Orders SET ORDER_STATUS = ? WHERE ORDER_ID = ?', (new_status, order_id))
+        connector.commit()
+        clear_and_display_orders()
+        mb.showinfo('Status Updated', 'The status of the selected order has been updated.')
+    except Exception as e:
+        mb.showerror('Error', str(e))
+
+def change_reservation_status():
+    global reservations_tree, cursor
+    selected_item = reservations_tree.selection()
+    if not selected_item:
+        mb.showerror('Error', 'Please select a reservation to change its status.')
+        return
+    new_status = mb.askstring('New Status', 'Enter the new status for the reservation (e.g., Pending, Confirmed):')
+    if not new_status:
+        return
+    reservation_id = reservations_tree.item(selected_item)['values'][0]
+    try:
+        cursor.execute('UPDATE Reservations SET RESERVATION_STATUS = ? WHERE RESERVATION_ID = ?', (new_status, reservation_id))
+        connector.commit()
+        clear_and_display_reservations()
+        mb.showinfo('Status Updated', 'The status of the selected reservation has been updated.')
+    except Exception as e:
+        mb.showerror('Error', str(e))
+
+lf_bg = '#f0f0f0'
+rtf_bg = '#e0e0e0'
+rbf_bg = '#d0d0d0'
+btn_hlb_bg = '#0059b3'
+lbl_font = ('Helvetica', 13, 'bold')
+entry_font = ('Helvetica', 12)
+btn_font = ('Helvetica', 12, 'bold')
+
+root = Tk()
+root.title('Catering Reservation and Ordering System')
+root.geometry('1000x600')
+root.configure(bg=lf_bg)
+root.resizable(0, 0)
+
+Label(root, text='Catering Reservation and Ordering System', font=("Helvetica", 18, 'bold'), bg=btn_hlb_bg, fg='White').pack(side=TOP, fill=X)
+
+customer_name = StringVar()
+food_item = StringVar()
+quantity = IntVar()
+order_status = StringVar()
+order_id = StringVar()
+
+event_date = StringVar()
+guest_count = IntVar()
+reservation_status = StringVar()
+reservation_id = StringVar()
+
+left_frame = Frame(root, bg=lf_bg)
+left_frame.place(x=0, y=30, relwidth=0.3, relheight=0.96)
+
+RT_frame = Frame(root, bg=rtf_bg)
+RT_frame.place(relx=0.3, y=30, relheight=0.2, relwidth=0.7)
+
+RB_frame = Frame(root, bg=rbf_bg)
+RB_frame.place(relx=0.3, rely=0.24, relheight=0.785, relwidth=0.7)
+
+# Orders Section
+Label(left_frame, text='Customer Name', bg=lf_bg, font=lbl_font).place(x=20, y=30)
+Entry(left_frame, width=25, font=entry_font, textvariable=customer_name).place(x=20, y=60)
+
+Label(left_frame, text='Food Item', bg=lf_bg, font=lbl_font).place(x=20, y=100)
+Entry(left_frame, width=25, font=entry_font, textvariable=food_item).place(x=20, y=130)
+
+Label(left_frame, text='Quantity', bg=lf_bg, font=lbl_font).place(x=20, y=170)
+Spinbox(left_frame, from_=1, to=100, width=10, font=entry_font, textvariable=quantity).place(x=20, y=200)
+
+Label(left_frame, text='Order Status', bg=lf_bg, font=lbl_font).place(x=20, y=240)
+OptionMenu(left_frame, order_status, 'Pending', 'Completed').place(x=20, y=270)
+
+Button(left_frame, text='Place Order', font=btn_font, bg=btn_hlb_bg, width=15, command=place_order).place(x=20, y=320)
+
+orders_tree = ttk.Treeview(RB_frame, selectmode=BROWSE, columns=('Order ID', 'Customer Name', 'Food Item', 'Quantity', 'Order Status'))
+XScrollbar_orders = Scrollbar(orders_tree, orient=HORIZONTAL, command=orders_tree.xview)
+YScrollbar_orders = Scrollbar(orders_tree, orient=VERTICAL, command=orders_tree.yview)
+XScrollbar_orders.pack(side=BOTTOM, fill=X)
+YScrollbar_orders.pack(side=RIGHT, fill=Y)
+orders_tree.config(xscrollcommand=XScrollbar_orders.set, yscrollcommand=YScrollbar_orders.set)
+orders_tree.heading('Order ID', text='Order ID', anchor=CENTER)
+orders_tree.heading('Customer Name', text='Customer Name', anchor=CENTER)
+orders_tree.heading('Food Item', text='Food Item', anchor=CENTER)
+orders_tree.heading('Quantity', text='Quantity', anchor=CENTER)
+orders_tree.heading('Order Status', text='Order Status', anchor=CENTER)
+orders_tree.column('#0', width=0, stretch=NO)
+orders_tree.column('#1', width=100, stretch=NO)
+orders_tree.column('#2', width=150, stretch=NO)
+orders_tree.column('#3', width=70, stretch=NO)
+orders_tree.column('#4', width=100, stretch=NO)
+orders_tree.column('#5', width=100, stretch=NO)
+orders_tree.place(y=30, x=0, relheight=0.9, relwidth=1)
+
+clear_and_display_orders()
+
+# Reservations Section
+Label(left_frame, text='Customer Name', bg=lf_bg, font=lbl_font).place(x=20, y=370)
+Entry(left_frame, width=25, font=entry_font, textvariable=customer_name).place(x=20, y=400)
+
+Label(left_frame, text='Event Date', bg=lf_bg, font=lbl_font).place(x=20, y=440)
+Entry(left_frame, width=25, font=entry_font, textvariable=event_date).place(x=20, y=470)
+
+Label(left_frame, text='Guest Count', bg=lf_bg, font=lbl_font).place(x=20, y=510)
+Spinbox(left_frame, from_=1, to=1000, width=10, font=entry_font, textvariable=guest_count).place(x=20, y=540)
+
+Label(left_frame, text='Reservation Status', bg=lf_bg, font=lbl_font).place(x=20, y=580)
+OptionMenu(left_frame, reservation_status, 'Pending', 'Confirmed').place(x=20, y=610)
+
+Button(left_frame, text='Make Reservation', font=btn_font, bg=btn_hlb_bg, width=15, command=make_reservation).place(x=20, y=660)
+
+reservations_tree = ttk.Treeview(RB_frame, selectmode=BROWSE, columns=('Reservation ID', 'Customer Name', 'Event Date', 'Guest Count', 'Reservation Status'))
+XScrollbar_reservations = Scrollbar(reservations_tree, orient=HORIZONTAL, command=reservations_tree.xview)
+YScrollbar_reservations = Scrollbar(reservations_tree, orient=VERTICAL, command=reservations_tree.yview)
+XScrollbar_reservations.pack(side=BOTTOM, fill=X)
+YScrollbar_reservations.pack(side=RIGHT, fill=Y)
+reservations_tree.config(xscrollcommand=XScrollbar_reservations.set, yscrollcommand=YScrollbar_reservations.set)
+reservations_tree.heading('Reservation ID', text='Reservation ID', anchor=CENTER)
+reservations_tree.heading('Customer Name', text='Customer Name', anchor=CENTER)
+reservations_tree.heading('Event Date', text='Event Date', anchor=CENTER)
+reservations_tree.heading('Guest Count', text='Guest Count', anchor=CENTER)
+reservations_tree.heading('Reservation Status', text='Reservation Status', anchor=CENTER)
+reservations_tree.column('#0', width=0, stretch=NO)
+reservations_tree.column('#1', width=100, stretch=NO)
+reservations_tree.column('#2', width=150, stretch=NO)
+reservations_tree.column('#3', width=70, stretch=NO)
+reservations_tree.column('#4', width=100, stretch=NO)
+reservations_tree.column('#5', width=100, stretch=NO)
+reservations_tree.place(y=30, x=0, relheight=0.9, relwidth=1)
+
+clear_and_display_reservations()
+
+# Control Buttons
+Button(RT_frame, text='Cancel Order', font=btn_font, bg=btn_hlb_bg, width=15, command=cancel_order).place(x=20, y=20)
+Button(RT_frame, text='Cancel Reservation', font=btn_font, bg=btn_hlb_bg, width=15, command=cancel_reservation).place(x=180, y=20)
+Button(RT_frame, text='Change Order Status', font=btn_font, bg=btn_hlb_bg, width=20, command=change_order_status).place(x=340, y=20)
+Button(RT_frame, text='Change Reservation Status', font=btn_font, bg=btn_hlb_bg, width=25, command=change_reservation_status).place(x=520, y=20)
+
+root.mainloop()
